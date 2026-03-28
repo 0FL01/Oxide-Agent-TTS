@@ -7,7 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     OMP_WAIT_POLICY=PASSIVE \
     SILERO_MODEL_FILE=v5_4_ru.pt \
     SILERO_SPEAKER=xenia \
-    SILERO_SAMPLE_RATE=48000
+    SILERO_SAMPLE_RATE=48000 \
+    FFMPEG_BIN=ffmpeg \
+    OGG_OPUS_BITRATE=32k \
+    OGG_OPUS_APPLICATION=voip
 
 ARG TORCH_VERSION=2.7.1+cpu
 ARG MODEL_FILE=v5_4_ru.pt
@@ -18,6 +21,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements_ru.txt /app/requirements_ru.txt

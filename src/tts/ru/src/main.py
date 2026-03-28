@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import io
 import os
 import shutil
@@ -6,6 +7,7 @@ import subprocess
 import wave
 from pathlib import Path
 from threading import Lock
+from typing import Optional
 
 import numpy as np
 import torch
@@ -54,9 +56,15 @@ class TTSRequest(BaseModel):
     format: str = Field(default="wav", pattern="^(wav|ogg)$")
     ssml: bool = False
 
+    humanize: bool = True
+    put_accent: Optional[bool] = None
+    put_yo: Optional[bool] = None
+    put_stress_homo: Optional[bool] = None
+    put_yo_homo: Optional[bool] = None
+
 
 def looks_like_ssml(text: str) -> bool:
-    stripped = text.lstrip()
+    stripped = text.lstrip().lower()
     ssml_markers = (
         "<speak",
         "<break",
@@ -132,6 +140,8 @@ def pcm16_to_ogg_bytes(pcm16_bytes: bytes, sample_rate: int) -> bytes:
 
 
 def prepare_tts_kwargs(req: TTSRequest) -> dict:
+    sig = inspect.signature(model.apply_tts)
+
     text = req.text.strip()
     use_ssml = req.ssml or looks_like_ssml(text)
 
@@ -141,11 +151,30 @@ def prepare_tts_kwargs(req: TTSRequest) -> dict:
     }
 
     if use_ssml:
-        if not text.lstrip().startswith("<speak"):
+        if not text.lstrip().lower().startswith("<speak"):
             text = f"<speak>{text}</speak>"
         kwargs["ssml_text"] = text
     else:
         kwargs["text"] = text
+
+    if req.humanize:
+        desired_flags = {
+            "put_accent": True if req.put_accent is None else req.put_accent,
+            "put_yo": True if req.put_yo is None else req.put_yo,
+            "put_stress_homo": True if req.put_stress_homo is None else req.put_stress_homo,
+            "put_yo_homo": True if req.put_yo_homo is None else req.put_yo_homo,
+        }
+    else:
+        desired_flags = {
+            "put_accent": req.put_accent,
+            "put_yo": req.put_yo,
+            "put_stress_homo": req.put_stress_homo,
+            "put_yo_homo": req.put_yo_homo,
+        }
+
+    for name, value in desired_flags.items():
+        if value is not None and name in sig.parameters:
+            kwargs[name] = value
 
     return kwargs
 
@@ -195,6 +224,8 @@ def list_voices():
 
 @app.get("/healthz")
 def healthz():
+    sig = inspect.signature(model.apply_tts)
+
     return {
         "status": "ok",
         "device": "cpu",
@@ -202,10 +233,16 @@ def healthz():
         "default_speaker": DEFAULT_SPEAKER,
         "default_sample_rate": DEFAULT_SAMPLE_RATE,
         "supported_formats": ["wav", "ogg"],
-        "supports_ssml": True,
+        "supports_ssml": "ssml_text" in sig.parameters,
         "ffmpeg_available": shutil.which(FFMPEG_BIN) is not None,
         "ogg_opus_bitrate": OGG_OPUS_BITRATE,
         "ogg_opus_application": OGG_OPUS_APPLICATION,
+        "humanize_defaults": {
+            "put_accent": "put_accent" in sig.parameters,
+            "put_yo": "put_yo" in sig.parameters,
+            "put_stress_homo": "put_stress_homo" in sig.parameters,
+            "put_yo_homo": "put_yo_homo" in sig.parameters,
+        },
     }
 
 
