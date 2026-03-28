@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
       "torch==${TORCH_VERSION}"
 
 COPY requirements_en.txt .
-RUN pip install --no-cache-dir -r requirements_en.txt
+RUN pip install --no-cache-dir -r requirements_en.txt && \
+    python -m spacy download en_core_web_sm
 
 RUN mkdir -p /app/models && \
     wget -O /app/models/kokoro-v1.0.onnx \
