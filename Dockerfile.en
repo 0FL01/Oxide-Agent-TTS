@@ -1,0 +1,73 @@
+FROM python:3.12-slim AS builder
+
+ARG TORCH_VERSION=2.7.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget \
+    espeak-ng \
+    libespeak-ng-dev \
+    ffmpeg \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      "torch==${TORCH_VERSION}"
+
+COPY requirements_en.txt .
+RUN pip install --no-cache-dir -r requirements_en.txt
+
+RUN mkdir -p /app/models && \
+    wget -O /app/models/kokoro-v1.0.onnx \
+      https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx && \
+    wget -O /app/models/voices-v1.0.bin \
+      https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin && \
+    wget -O /app/models/config.json \
+      https://huggingface.co/hexgrad/Kokoro-82M/raw/main/config.json && \
+    wget -O /app/models/tokenizer.json \
+      https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/tokenizer.json
+
+RUN python - <<'PY'
+import importlib.metadata as md
+import torch
+import onnxruntime as ort
+
+bad = sorted(
+    d.metadata["Name"]
+    for d in md.distributions()
+    if d.metadata.get("Name", "").lower().startswith("nvidia-")
+)
+assert not bad, f"Unexpected NVIDIA packages installed: {bad}"
+assert torch.version.cuda is None, f"torch has CUDA build: {torch.version.cuda}"
+assert "CPUExecutionProvider" in ort.get_available_providers(), ort.get_available_providers()
+
+print("torch:", torch.__version__)
+print("torch.version.cuda:", torch.version.cuda)
+print("onnxruntime providers:", ort.get_available_providers())
+PY
+
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    espeak-ng \
+    libgomp1 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/models /app/models
+COPY src/tts/en/src/ ./src/
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

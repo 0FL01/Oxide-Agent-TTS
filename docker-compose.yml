@@ -1,0 +1,63 @@
+services:
+  tts-en:
+    build:
+      context: .
+      dockerfile: Dockerfile.en
+    image: oxide-tts-en:latest
+    container_name: oxide-tts-en
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - OMP_NUM_THREADS=6
+      - OMP_WAIT_POLICY=PASSIVE
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 2G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - tts-network
+
+  tts-ru:
+    build:
+      context: .
+      dockerfile: Dockerfile.ru
+    image: oxide-tts-ru:latest
+    container_name: oxide-tts-ru
+    ports:
+      - "127.0.0.1:8001:8010"
+    environment:
+      - OMP_NUM_THREADS=6
+      - OMP_WAIT_POLICY=PASSIVE
+      - SILERO_MODEL_FILE=v5_4_ru.pt
+      - SILERO_SPEAKER=xenia
+      - SILERO_SAMPLE_RATE=48000
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - tts-network
+
+networks:
+  tts-network:
+    driver: bridge
