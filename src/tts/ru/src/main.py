@@ -19,7 +19,7 @@ MODELS_DIR = BASE_DIR / "models"
 MODEL_FILE = os.getenv("SILERO_MODEL_FILE", "v5_ru.pt")
 MODEL_PATH = MODELS_DIR / MODEL_FILE
 
-DEFAULT_SPEAKER = os.getenv("SILERO_SPEAKER", "xenia")
+DEFAULT_SPEAKER = os.getenv("SILERO_SPEAKER", "baya")
 DEFAULT_SAMPLE_RATE = int(os.getenv("SILERO_SAMPLE_RATE", "48000"))
 OMP_NUM_THREADS = int(os.getenv("OMP_NUM_THREADS", "4"))
 

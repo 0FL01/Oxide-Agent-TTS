@@ -40,7 +40,7 @@ services:
       - OMP_NUM_THREADS=6
       - OMP_WAIT_POLICY=PASSIVE
       - SILERO_MODEL_FILE=v5_4_ru.pt
-      - SILERO_SPEAKER=xenia
+      - SILERO_SPEAKER=baya
       - SILERO_SAMPLE_RATE=48000
     deploy:
       resources:
