@@ -291,6 +291,16 @@ async def generate_speech_file(req: TTSRequest):
     )
 
 
+@app.get("/healthz")
+def healthz():
+    return {
+        "status": "ok",
+        "service": "tts-en",
+        "model": "kokoro-v1.0",
+        "voices_available": len(voices_db),
+    }
+
+
 @app.post("/v1/audio/speech/stream")
 async def generate_speech_stream(req: TTSRequest):
     if not req.text.strip():
